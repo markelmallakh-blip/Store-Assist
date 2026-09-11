@@ -67,6 +67,10 @@ export const config = {
     sessionDays: int(process.env.SESSION_DAYS, 30),
   },
 
+  openai: {
+    model: process.env.OPENAI_MODEL || "gpt-5.6",
+  },
+
   claude: {
     model: process.env.CLAUDE_MODEL || "claude-opus-5",
     effort: (process.env.CLAUDE_EFFORT || "medium") as "low" | "medium" | "high" | "xhigh" | "max",
@@ -91,3 +95,13 @@ export const sheetEnabled = () => Boolean(config.sheet.id && config.sheet.servic
 export const shopifyConfigured = () =>
   Boolean(config.shopify.domain && (config.shopify.adminToken || (config.shopify.clientId && config.shopify.clientSecret)));
 export const claudeConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+export const openaiConfigured = () => Boolean(process.env.OPENAI_API_KEY);
+
+/** Which AI reads receipt photos: RECEIPT_AI=claude|openai, else whichever key is set (Claude if both). */
+export function receiptProvider(): "claude" | "openai" {
+  const p = (process.env.RECEIPT_AI || "").toLowerCase();
+  if (p === "openai" || p === "claude") return p;
+  return openaiConfigured() && !claudeConfigured() ? "openai" : "claude";
+}
+export const receiptReady = () => (receiptProvider() === "openai" ? openaiConfigured() : claudeConfigured());
+export const receiptModel = () => (receiptProvider() === "openai" ? config.openai.model : config.claude.model);

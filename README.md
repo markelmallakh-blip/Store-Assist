@@ -5,7 +5,7 @@ A small admin dashboard for the Cupcairo Shopify store. Open it in the morning (
 | Screen | What it does |
 |---|---|
 | **Today** | **To buy**: items open orders need that you don't have (Shopify stock below zero, bundle items, or the actual sheet below zero), with the orders that need them. **+ Add** puts anything else on the list by hand (shown as *Added manually*, stored in the shop metafield `store_assist.manual_needs`); recording a purchase of that item clears it. **Confirmations**: open orders where `custom.confirmed` isn't true, split into *not sent*, *sent, waiting reply*, and *marked not confirmed*, with WhatsApp / Shopify links and one-tap **Mark sent** / **Confirmed**. |
-| **Purchase** | Take a photo of a receipt or the products. Claude reads it and matches items to your catalog; when unsure it shows the likely products so you choose. Set quantity and cost, and it adds the stock to Shopify, updates *Cost per item*, and adds it to the actual inventory sheet. |
+| **Purchase** | Take a photo (JPG, PNG or iPhone HEIC) of a receipt or the products. OpenAI or Claude (your choice in Settings) reads it, Arabic or English, and matches items to your catalog; when unsure it shows the likely products so you choose. Set quantity and cost, and it adds the stock to Shopify, updates *Cost per item*, and adds it to the actual inventory sheet. |
 | **Products** | Every product with Shopify qty, actual (sheet) qty, cost, price, and margin. Filters for below zero, Shopify ≠ actual, not in sheet, no cost. |
 | **Bundles** | Tell it which single items each bundle uses (e.g. *Davidoff Bundle · Rich Aroma / Espresso 57* = 1× Rich Aroma + 1× Espresso 57). Suggestions are pre-filled from option names and SKUs; accept or edit. |
 | **Settings** | Connection status, webhook registration, sheet tools. |
@@ -37,7 +37,7 @@ Clear cases are applied **automatically**, with no setup needed: multipacks whos
 
 ### 2. Deploy (Netlify)
 1. [app.netlify.com](https://app.netlify.com) → **Add new project → Import an existing project → GitHub** → pick this repo. Build settings come from `netlify.toml`.
-2. Environment variables: `ADMIN_PASSWORD`, `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` (and `ANTHROPIC_API_KEY` for receipt reading). The session and cron secrets are derived automatically, and the site address comes from Netlify's `URL`.
+2. Environment variables: `ADMIN_PASSWORD`, `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` (and `OPENAI_API_KEY` + `RECEIPT_AI=openai`, or `ANTHROPIC_API_KEY`, for receipt reading). The session and cron secrets are derived automatically, and the site address comes from Netlify's `URL`.
 3. Open the site → **Settings** → **Register webhooks**.
 4. On your phone, open the site and use *Add to Home Screen*.
 
@@ -73,4 +73,4 @@ npm run dev
 
 To preview without Shopify credentials, set `SHOPIFY_FIXTURES_DIR` to a folder with `Catalog.json`, `Orders.json`, `ShopInfo.json`, `Locations.json`, `Hooks.json` (raw GraphQL responses). Writes are simulated in that mode.
 
-Stack: Next.js 16 (App Router), Tailwind 4, Shopify Admin GraphQL `2026-07`, Google Sheets API, Claude (`claude-opus-5`) for receipt reading.
+Stack: Next.js 16 (App Router), Tailwind 4, Shopify Admin GraphQL `2026-07`, Google Sheets API, OpenAI (`gpt-5.6`) or Claude (`claude-opus-5`) for receipt reading.

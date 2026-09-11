@@ -1,12 +1,12 @@
 import { handle } from "@/lib/api";
-import { claudeConfigured, config, sheetEnabled, shopifyConfigured } from "@/lib/config";
+import { claudeConfigured, config, openaiConfigured, receiptModel, receiptProvider, receiptReady, sheetEnabled, shopifyConfigured } from "@/lib/config";
 import { syncOpenOrders } from "@/lib/order-sync";
 import { addMissingRows, readInventory, serviceAccountEmail, matchRows } from "@/lib/sheet";
 import { getCatalog } from "@/lib/shopify/catalog";
 import { listWebhooks, primaryLocationId, registerWebhooks, shopInfo } from "@/lib/shopify/mutations";
 import { componentPool } from "@/lib/bundles";
 import { canSaveLocally } from "@/lib/env-file";
-import { connectClaude } from "@/lib/receipt";
+import { connectClaude, connectOpenAI } from "@/lib/receipt";
 import { connectShopify } from "@/lib/shopify/connect";
 
 export const maxDuration = 300;
@@ -26,6 +26,10 @@ export const GET = handle(async () => {
     syncBundlesToShopify: config.syncBundlesToShopify,
     lookbackDays: config.lookbackDays,
     claudeModel: config.claude.model,
+    openaiConfigured: openaiConfigured(),
+    receiptProvider: receiptProvider(),
+    receiptReady: receiptReady(),
+    receiptModel: receiptModel(),
     // Not secret: used to pre-fill the Connect Shopify form.
     shopDomain: config.shopify.domain,
     clientId: config.shopify.clientId,
@@ -60,6 +64,9 @@ export const POST = handle(async (request: Request) => {
   switch (action) {
     case "connect-claude": {
       return connectClaude(body.apiKey ?? "");
+    }
+    case "connect-openai": {
+      return connectOpenAI(body.apiKey ?? "");
     }
     case "connect-shopify": {
       const r = await connectShopify(body.domain ?? "", body.clientId ?? "", body.clientSecret ?? "");

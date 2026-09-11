@@ -26,22 +26,57 @@ type Status = {
   shopDomain: string;
   clientId: string;
   canSaveLocally: boolean;
+  openaiConfigured: boolean;
+  receiptProvider: "claude" | "openai";
+  receiptReady: boolean;
+  receiptModel: string;
 };
 
-/** Paste a Claude API key; the server checks it with Anthropic before using it. */
-function ClaudeConnect({ canSaveLocally, onConnected, onCancel }: { canSaveLocally: boolean; onConnected: (saved: boolean) => void; onCancel?: () => void }) {
+type AiProvider = "openai" | "claude";
+const AI_INFO: Record<AiProvider, { label: string; keyUrl: string; keyHelp: string; placeholder: string }> = {
+  openai: {
+    label: "OpenAI (ChatGPT)",
+    keyUrl: "https://platform.openai.com/api-keys",
+    keyHelp:
+      "Sign in at platform.openai.com with your OpenAI account, add a few dollars under Billing (API use is billed separately from a ChatGPT subscription), then create an API key.",
+    placeholder: "sk-…",
+  },
+  claude: {
+    label: "Claude",
+    keyUrl: "https://console.anthropic.com/settings/keys",
+    keyHelp: "Create a key at console.anthropic.com (the account needs a little credit).",
+    placeholder: "sk-ant-…",
+  },
+};
+
+/** Pick OpenAI or Claude and paste its API key; the server checks the key before using it. */
+function AiConnect({
+  initial,
+  canSaveLocally,
+  onConnected,
+  onCancel,
+}: {
+  initial: AiProvider;
+  canSaveLocally: boolean;
+  onConnected: (provider: AiProvider, saved: boolean) => void;
+  onCancel?: () => void;
+}) {
+  const [provider, setProvider] = useState<AiProvider>(initial);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const info = AI_INFO[provider];
 
   async function connect(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ saved: boolean }>("/api/settings", { json: { action: "connect-claude", apiKey: key } });
+      const r = await api<{ saved: boolean }>("/api/settings", {
+        json: { action: provider === "openai" ? "connect-openai" : "connect-claude", apiKey: key },
+      });
       setKey("");
-      onConnected(r.saved);
+      onConnected(provider, r.saved);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -51,23 +86,40 @@ function ClaudeConnect({ canSaveLocally, onConnected, onCancel }: { canSaveLocal
 
   return (
     <form onSubmit={connect} className="space-y-3">
-      <p className="text-sm text-fg-muted">
-        Reading receipts and product photos uses Claude. Create a key at{" "}
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className="text-neon underline">
-          console.anthropic.com → API keys
-        </a>{" "}
-        (the account needs a little credit; each photo costs a few cents) and paste it here.
+      <p className="text-sm text-fg-muted">An AI reads receipts and product photos (Arabic or English) and matches them to your products. Each photo costs about a cent or two.</p>
+      <div role="radiogroup" aria-label="AI provider" className="grid grid-cols-2 gap-1.5 rounded-xl bg-surface-2 p-1 ring-1 ring-inset ring-line">
+        {(Object.keys(AI_INFO) as AiProvider[]).map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="radio"
+            aria-checked={provider === p}
+            onClick={() => {
+              setProvider(p);
+              setError(null);
+            }}
+            className={`h-9 rounded-lg text-sm font-medium transition ${provider === p ? "bg-neon text-neon-ink" : "text-fg-muted hover:text-fg"}`}
+          >
+            {AI_INFO[p].label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-fg-muted">
+        {info.keyHelp}{" "}
+        <a href={info.keyUrl} target="_blank" rel="noreferrer" className="text-neon underline">
+          Open the API keys page
+        </a>
       </p>
       <div>
-        <label htmlFor="claude-key" className="mb-1 block text-xs font-medium text-fg-muted">
-          Claude API key
+        <label htmlFor="ai-key" className="mb-1 block text-xs font-medium text-fg-muted">
+          {info.label} API key
         </label>
         <input
-          id="claude-key"
+          id="ai-key"
           type="password"
           value={key}
           onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-ant-…"
+          placeholder={info.placeholder}
           autoComplete="off"
           spellCheck={false}
           required
@@ -76,7 +128,9 @@ function ClaudeConnect({ canSaveLocally, onConnected, onCancel }: { canSaveLocal
       </div>
       {error && <ErrorBox message={error} />}
       {!canSaveLocally && (
-        <p className="text-xs text-fg-subtle">On the live site the key is only tested here. To keep it, add ANTHROPIC_API_KEY in Netlify → Environment variables.</p>
+        <p className="text-xs text-fg-subtle">
+          On the live site the key is only tested here. To keep it, add {provider === "openai" ? "OPENAI_API_KEY and RECEIPT_AI=openai" : "ANTHROPIC_API_KEY"} in Netlify → Environment variables.
+        </p>
       )}
       <div className="flex justify-end gap-2">
         {onCancel && (
@@ -85,7 +139,7 @@ function ClaudeConnect({ canSaveLocally, onConnected, onCancel }: { canSaveLocal
           </Button>
         )}
         <Button type="submit" variant="primary" loading={busy} disabled={!key}>
-          Connect Claude
+          Connect {info.label}
         </Button>
       </div>
     </form>
@@ -349,21 +403,25 @@ export default function SettingsPage() {
 
           <Card className="scroll-mt-20 p-4">
             <div id="receipt-reading" />
-            <Title ok={data.claudeConfigured}>Receipt reading</Title>
-            {data.claudeConfigured && !editingClaude ? (
+            <Title ok={data.receiptReady}>Receipt reading</Title>
+            {data.receiptReady && !editingClaude ? (
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm text-fg-muted">Photos are read by {data.claudeModel}, Arabic and English.</p>
+                <p className="text-sm text-fg-muted">
+                  Photos are read by {data.receiptProvider === "openai" ? "OpenAI" : "Claude"} ({data.receiptModel}), Arabic and English.
+                </p>
                 <Button size="sm" variant="ghost" onClick={() => setEditingClaude(true)}>
-                  Change key
+                  Change
                 </Button>
               </div>
             ) : (
-              <ClaudeConnect
+              <AiConnect
+                initial={data.receiptProvider === "claude" && data.claudeConfigured ? "claude" : "openai"}
                 canSaveLocally={data.canSaveLocally}
-                onCancel={data.claudeConfigured ? () => setEditingClaude(false) : undefined}
-                onConnected={(saved) => {
+                onCancel={data.receiptReady ? () => setEditingClaude(false) : undefined}
+                onConnected={(provider, saved) => {
                   setEditingClaude(false);
-                  toast.show(saved ? "Receipt reading connected" : "Key works. Add ANTHROPIC_API_KEY in Netlify to keep it.");
+                  const name = provider === "openai" ? "OpenAI" : "Claude";
+                  toast.show(saved ? `Receipt reading connected to ${name}` : `Key works. Add it in Netlify to keep it.`);
                   reload();
                 }}
               />

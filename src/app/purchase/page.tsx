@@ -175,7 +175,7 @@ function Purchase() {
 
       {catalog && !catalog.claudeReady && (
         <div className="mb-3 rounded-2xl border border-amber/30 bg-amber/10 p-4 text-sm text-amber">
-          Reading photos needs your Claude API key.{" "}
+          Reading photos needs an AI key (OpenAI/ChatGPT or Claude).{" "}
           <Link href="/settings#receipt-reading" className="font-medium underline">
             Connect it in Settings
           </Link>{" "}

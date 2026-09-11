@@ -1,5 +1,5 @@
 import { handle } from "@/lib/api";
-import { claudeConfigured } from "@/lib/config";
+import { receiptReady } from "@/lib/config";
 import { getCatalog } from "@/lib/shopify/catalog";
 import { purchasableCatalog } from "@/lib/receipt";
 
@@ -7,7 +7,7 @@ import { purchasableCatalog } from "@/lib/receipt";
 export const GET = handle(async () => {
   const catalog = await getCatalog();
   return {
-    claudeReady: claudeConfigured(),
+    claudeReady: receiptReady(),
     items: purchasableCatalog(catalog)
       .map((v) => ({
         id: v.id,
