@@ -53,6 +53,16 @@ Clear cases are applied **automatically**, with no setup needed: multipacks whos
 ### 4. CK WhatsApp confirmations
 The "Order confirmation" badge inside CK isn't visible to other apps. The dashboard treats an order as *sent* when it has the tag `CONFIRMATION_SENT_TAG`. You can tap **Mark sent**, or set CK / Shopify Flow to add a tag when CK sends the confirmation and put that tag name in `CONFIRMATION_SENT_TAG`.
 
+## Publishing changes
+
+Vercel is connected to this GitHub repo, so every push to `main` goes live in about a minute. After editing and checking on `localhost:3000`:
+
+```bash
+npm run ship
+```
+
+It type-checks and lints first (a broken edit never goes live), then commits and pushes. Vercel keeps every deployment, so a bad one can be rolled back from the Vercel dashboard (Deployments → ⋯ → Promote).
+
 ## Local development
 
 ```bash

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check": "tsc --noEmit && eslint src",
+    "ship": "npm run check && git add -A && (git diff --cached --quiet || git commit -m \"Update $(date '+%Y-%m-%d %H:%M')\") && git push"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
