@@ -13,6 +13,11 @@ export class ShopifyError extends Error {
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+/** Forget the cached access token (after the credentials change). */
+export function resetShopifyToken() {
+  cachedToken = null;
+}
+
 async function accessToken(): Promise<string> {
   const { adminToken, clientId, clientSecret, domain } = config.shopify;
   if (adminToken) return adminToken;

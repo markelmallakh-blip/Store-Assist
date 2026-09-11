@@ -5,6 +5,7 @@ import { addMissingRows, readInventory, serviceAccountEmail, matchRows } from "@
 import { getCatalog } from "@/lib/shopify/catalog";
 import { listWebhooks, primaryLocationId, registerWebhooks, shopInfo } from "@/lib/shopify/mutations";
 import { componentPool } from "@/lib/bundles";
+import { canSaveLocally, connectShopify } from "@/lib/shopify/connect";
 
 export const maxDuration = 300;
 
@@ -23,6 +24,10 @@ export const GET = handle(async () => {
     syncBundlesToShopify: config.syncBundlesToShopify,
     lookbackDays: config.lookbackDays,
     claudeModel: config.claude.model,
+    // Not secret: used to pre-fill the Connect Shopify form.
+    shopDomain: config.shopify.domain,
+    clientId: config.shopify.clientId,
+    canSaveLocally: canSaveLocally(),
   };
 
   if (shopifyConfigured()) {
@@ -48,8 +53,13 @@ export const GET = handle(async () => {
 });
 
 export const POST = handle(async (request: Request) => {
-  const { action } = (await request.json()) as { action: string };
+  const body = (await request.json()) as { action: string; domain?: string; clientId?: string; clientSecret?: string };
+  const { action } = body;
   switch (action) {
+    case "connect-shopify": {
+      const r = await connectShopify(body.domain ?? "", body.clientId ?? "", body.clientSecret ?? "");
+      return r;
+    }
     case "register-webhooks": {
       if (!config.appUrl) throw new Error("Set APP_URL (your deployed https address) first.");
       return { results: await registerWebhooks(`${config.appUrl}/api/webhooks/shopify`) };

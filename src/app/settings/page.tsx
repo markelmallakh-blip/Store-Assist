@@ -23,7 +23,106 @@ type Status = {
   shopifyError?: string;
   sheet?: { rows: number; headers: string[]; matched: number; singles: number };
   sheetError?: string;
+  shopDomain: string;
+  clientId: string;
+  canSaveLocally: boolean;
 };
+
+/** Paste the Shopify app keys here; the server tests them against the store before using them. */
+function ShopifyConnect({
+  status,
+  onConnected,
+  onCancel,
+}: {
+  status: Status;
+  onConnected: (shopName: string, saved: boolean) => void;
+  onCancel?: () => void;
+}) {
+  const [domain, setDomain] = useState(status.shopDomain);
+  const [clientId, setClientId] = useState(status.clientId);
+  const [secret, setSecret] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+
+  async function connect(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setWarning(null);
+    try {
+      const r = await api<{ shopName: string; saved: boolean; missingScopes: string[] }>("/api/settings", {
+        json: { action: "connect-shopify", domain, clientId, clientSecret: secret },
+      });
+      setSecret("");
+      if (r.missingScopes.length) setWarning(`Connected, but the app is missing: ${r.missingScopes.join(", ")}. Add them in the Dev Dashboard and release a new version.`);
+      onConnected(r.shopName, r.saved);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = "h-11 w-full rounded-xl bg-surface-2 px-3 text-sm ring-1 ring-inset ring-line-strong outline-none focus:ring-2 focus:ring-neon";
+  return (
+    <form onSubmit={connect} className="space-y-3">
+      <p className="text-sm text-fg-muted">
+        Paste the keys of your Shopify app (<span className="text-fg">dev.shopify.com → your app → Settings</span>). The app must be installed on your store.
+      </p>
+      <div>
+        <label htmlFor="shop-domain" className="mb-1 block text-xs font-medium text-fg-muted">
+          Store address
+        </label>
+        <input id="shop-domain" className={field} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="your-store.myshopify.com" autoComplete="off" required />
+      </div>
+      <div>
+        <label htmlFor="shop-client-id" className="mb-1 block text-xs font-medium text-fg-muted">
+          Client ID
+        </label>
+        <input id="shop-client-id" className={`${field} font-mono`} value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" spellCheck={false} required />
+      </div>
+      <div>
+        <label htmlFor="shop-secret" className="mb-1 block text-xs font-medium text-fg-muted">
+          Client secret
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="shop-secret"
+            type={show ? "text" : "password"}
+            className={`${field} font-mono`}
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            required
+          />
+          <Button type="button" variant="secondary" className="h-11 shrink-0" onClick={() => setShow((s) => !s)} aria-label={show ? "Hide secret" : "Show secret"}>
+            {show ? "Hide" : "Show"}
+          </Button>
+        </div>
+      </div>
+      {error && <ErrorBox message={error} />}
+      {warning && <p className="text-sm text-amber">{warning}</p>}
+      {!status.canSaveLocally && (
+        <p className="text-xs text-fg-subtle">
+          On the live site the keys are only tested here. To keep them, add SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in Netlify → Environment variables.
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        {onCancel && (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" variant="primary" loading={busy} disabled={!domain || !clientId || !secret}>
+          Connect Shopify
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 const TOPICS = ["ORDERS_CREATE", "ORDERS_EDITED", "ORDERS_CANCELLED", "REFUNDS_CREATE"];
 
@@ -31,6 +130,7 @@ export default function SettingsPage() {
   const { data, error, loading, reload } = useApi<Status>("/api/settings");
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string | null>(null);
+  const [editingShopify, setEditingShopify] = useState(false);
   const toast = useToast();
   const router = useRouter();
 
@@ -72,8 +172,28 @@ export default function SettingsPage() {
           <Card className="p-4">
             <Title ok={Boolean(data.shop)}>Shopify</Title>
             {data.shopifyError && <ErrorBox message={data.shopifyError} />}
-            {!data.shopifyConfigured && <p className="text-sm text-fg-muted">Set SHOPIFY_STORE_DOMAIN and the app credentials in the environment.</p>}
-            {data.shop && (
+            {(!data.shop || editingShopify) && (
+              <ShopifyConnect
+                status={data}
+                onCancel={data.shop ? () => setEditingShopify(false) : undefined}
+                onConnected={(name, saved) => {
+                  setEditingShopify(false);
+                  toast.show(saved ? `Connected to ${name}` : `Keys work for ${name}. Add them in Netlify to keep them.`);
+                  reload();
+                }}
+              />
+            )}
+            {data.shop && !editingShopify && (
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <Badge tone="green">
+                  <IconCheck className="size-3.5" /> Connected
+                </Badge>
+                <Button size="sm" variant="ghost" onClick={() => setEditingShopify(true)}>
+                  Change keys
+                </Button>
+              </div>
+            )}
+            {data.shop && !editingShopify && (
               <Rows
                 rows={[
                   ["Store", `${data.shop.name} (${data.shop.myshopifyDomain})`],
