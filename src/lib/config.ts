@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 // Central place for every environment variable the app reads.
 // See .env.example for descriptions.
 
@@ -60,7 +62,8 @@ export const config = {
 
   auth: {
     password: process.env.ADMIN_PASSWORD || "",
-    sessionSecret: process.env.SESSION_SECRET || "",
+    // Optional: derived from the admin password when not set (changing the password then signs everyone out).
+    sessionSecret: process.env.SESSION_SECRET || derive("session", process.env.ADMIN_PASSWORD),
     sessionDays: int(process.env.SESSION_DAYS, 30),
   },
 
@@ -69,9 +72,20 @@ export const config = {
     effort: (process.env.CLAUDE_EFFORT || "medium") as "low" | "medium" | "high" | "xhigh" | "max",
   },
 
-  appUrl: (process.env.APP_URL || "").replace(/\/$/, ""),
-  cronSecret: process.env.CRON_SECRET || "",
+  // APP_URL, or the address the host provides (Netlify: URL, Vercel: VERCEL_PROJECT_PRODUCTION_URL).
+  appUrl: (
+    process.env.APP_URL ||
+    process.env.URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "")
+  ).replace(/\/$/, ""),
+  // Optional: derived from the Shopify client secret when not set (netlify/functions/daily-sync.mts does the same).
+  cronSecret: process.env.CRON_SECRET || derive("cron", process.env.SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_ADMIN_TOKEN),
 };
+
+/** A stable secret derived from another server-only secret, so fewer values need to be configured. */
+function derive(purpose: string, from: string | undefined) {
+  return from ? createHash("sha256").update(`store-assist:${purpose}:${from}`).digest("hex") : "";
+}
 
 export const sheetEnabled = () => Boolean(config.sheet.id && config.sheet.serviceAccountJson);
 export const shopifyConfigured = () =>

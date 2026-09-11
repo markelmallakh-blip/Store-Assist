@@ -35,13 +35,13 @@ Clear cases are applied **automatically**, with no setup needed: multipacks whos
 4. Release a version and install it on the Cupcairo store.
 5. Copy **Client ID** and **Client secret** into `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET`.
 
-### 2. Deploy (Vercel)
-1. Push this folder to GitHub and import it in Vercel.
-2. Add the variables from `.env.example` (at least `ADMIN_PASSWORD`, `SESSION_SECRET`, `SHOPIFY_*`, `APP_URL`, `ANTHROPIC_API_KEY`, `CRON_SECRET`).
+### 2. Deploy (Netlify)
+1. [app.netlify.com](https://app.netlify.com) → **Add new project → Import an existing project → GitHub** → pick this repo. Build settings come from `netlify.toml`.
+2. Environment variables: `ADMIN_PASSWORD`, `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` (and `ANTHROPIC_API_KEY` for receipt reading). The session and cron secrets are derived automatically, and the site address comes from Netlify's `URL`.
 3. Open the site → **Settings** → **Register webhooks**.
 4. On your phone, open the site and use *Add to Home Screen*.
 
-`vercel.json` runs a daily safety-net sync (`/api/cron/sync`) in case a webhook was missed.
+`netlify/functions/daily-sync.mts` runs a daily safety-net sync (`/api/cron/sync`) in case a webhook was missed.
 
 ### 3. Actual inventory sheet (when ready)
 1. In Google Cloud, create a service account and a JSON key. Put the JSON in `GOOGLE_SERVICE_ACCOUNT_JSON`.
@@ -55,13 +55,13 @@ The "Order confirmation" badge inside CK isn't visible to other apps. The dashbo
 
 ## Publishing changes
 
-Vercel is connected to this GitHub repo, so every push to `main` goes live in about a minute. After editing and checking on `localhost:3000`:
+Netlify is connected to this GitHub repo, so every push to `main` goes live in a minute or two. After editing and checking on `localhost:3000`:
 
 ```bash
 npm run ship
 ```
 
-It type-checks and lints first (a broken edit never goes live), then commits and pushes. Vercel keeps every deployment, so a bad one can be rolled back from the Vercel dashboard (Deployments → ⋯ → Promote).
+It type-checks and lints first (a broken edit never goes live), then commits and pushes. Netlify keeps every deploy, so a bad one can be rolled back from the Netlify dashboard (Deploys → pick a deploy → Publish deploy).
 
 ## Local development
 

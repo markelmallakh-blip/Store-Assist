@@ -7,7 +7,7 @@ export const maxDuration = 300;
 
 /**
  * Safety net for missed webhooks: re-sync every order touched in the last 26 hours.
- * Vercel Cron calls this with "Authorization: Bearer <CRON_SECRET>".
+ * The daily scheduled function (netlify/functions/daily-sync.mts) calls this with "Authorization: Bearer <cron secret>".
  */
 export async function GET(request: Request) {
   if (!config.cronSecret || request.headers.get("authorization") !== `Bearer ${config.cronSecret}`) {
