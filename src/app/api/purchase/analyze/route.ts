@@ -9,7 +9,7 @@ const TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 type ImageType = (typeof TYPES)[number];
 
 export const POST = handle(async (request: Request) => {
-  if (!claudeConfigured()) throw new Error("Set ANTHROPIC_API_KEY to read photos.");
+  if (!claudeConfigured()) throw new Error("Reading photos needs your Claude API key. Add it in Settings → Receipt reading.");
   const { images } = (await request.json()) as { images: { data: string; mediaType: string }[] };
   if (!Array.isArray(images) || !images.length) throw new Error("Add at least one photo");
   if (images.length > 6) throw new Error("Up to 6 photos at a time");

@@ -28,6 +28,70 @@ type Status = {
   canSaveLocally: boolean;
 };
 
+/** Paste a Claude API key; the server checks it with Anthropic before using it. */
+function ClaudeConnect({ canSaveLocally, onConnected, onCancel }: { canSaveLocally: boolean; onConnected: (saved: boolean) => void; onCancel?: () => void }) {
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function connect(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ saved: boolean }>("/api/settings", { json: { action: "connect-claude", apiKey: key } });
+      setKey("");
+      onConnected(r.saved);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={connect} className="space-y-3">
+      <p className="text-sm text-fg-muted">
+        Reading receipts and product photos uses Claude. Create a key at{" "}
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className="text-neon underline">
+          console.anthropic.com → API keys
+        </a>{" "}
+        (the account needs a little credit; each photo costs a few cents) and paste it here.
+      </p>
+      <div>
+        <label htmlFor="claude-key" className="mb-1 block text-xs font-medium text-fg-muted">
+          Claude API key
+        </label>
+        <input
+          id="claude-key"
+          type="password"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="sk-ant-…"
+          autoComplete="off"
+          spellCheck={false}
+          required
+          className="h-11 w-full rounded-xl bg-surface-2 px-3 font-mono text-sm ring-1 ring-inset ring-line-strong outline-none focus:ring-2 focus:ring-neon"
+        />
+      </div>
+      {error && <ErrorBox message={error} />}
+      {!canSaveLocally && (
+        <p className="text-xs text-fg-subtle">On the live site the key is only tested here. To keep it, add ANTHROPIC_API_KEY in Netlify → Environment variables.</p>
+      )}
+      <div className="flex justify-end gap-2">
+        {onCancel && (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" variant="primary" loading={busy} disabled={!key}>
+          Connect Claude
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** Paste the Shopify app keys here; the server tests them against the store before using them. */
 function ShopifyConnect({
   status,
@@ -131,6 +195,7 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string | null>(null);
   const [editingShopify, setEditingShopify] = useState(false);
+  const [editingClaude, setEditingClaude] = useState(false);
   const toast = useToast();
   const router = useRouter();
 
@@ -282,11 +347,27 @@ export default function SettingsPage() {
             )}
           </Card>
 
-          <Card className="p-4">
+          <Card className="scroll-mt-20 p-4">
+            <div id="receipt-reading" />
             <Title ok={data.claudeConfigured}>Receipt reading</Title>
-            <p className="text-sm text-fg-muted">
-              {data.claudeConfigured ? `Photos are read by ${data.claudeModel}.` : "Set ANTHROPIC_API_KEY to read receipts and product photos."}
-            </p>
+            {data.claudeConfigured && !editingClaude ? (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-fg-muted">Photos are read by {data.claudeModel}, Arabic and English.</p>
+                <Button size="sm" variant="ghost" onClick={() => setEditingClaude(true)}>
+                  Change key
+                </Button>
+              </div>
+            ) : (
+              <ClaudeConnect
+                canSaveLocally={data.canSaveLocally}
+                onCancel={data.claudeConfigured ? () => setEditingClaude(false) : undefined}
+                onConnected={(saved) => {
+                  setEditingClaude(false);
+                  toast.show(saved ? "Receipt reading connected" : "Key works. Add ANTHROPIC_API_KEY in Netlify to keep it.");
+                  reload();
+                }}
+              />
+            )}
           </Card>
 
           {log && (

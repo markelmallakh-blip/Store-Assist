@@ -5,7 +5,9 @@ import { addMissingRows, readInventory, serviceAccountEmail, matchRows } from "@
 import { getCatalog } from "@/lib/shopify/catalog";
 import { listWebhooks, primaryLocationId, registerWebhooks, shopInfo } from "@/lib/shopify/mutations";
 import { componentPool } from "@/lib/bundles";
-import { canSaveLocally, connectShopify } from "@/lib/shopify/connect";
+import { canSaveLocally } from "@/lib/env-file";
+import { connectClaude } from "@/lib/receipt";
+import { connectShopify } from "@/lib/shopify/connect";
 
 export const maxDuration = 300;
 
@@ -53,9 +55,12 @@ export const GET = handle(async () => {
 });
 
 export const POST = handle(async (request: Request) => {
-  const body = (await request.json()) as { action: string; domain?: string; clientId?: string; clientSecret?: string };
+  const body = (await request.json()) as { action: string; domain?: string; clientId?: string; clientSecret?: string; apiKey?: string };
   const { action } = body;
   switch (action) {
+    case "connect-claude": {
+      return connectClaude(body.apiKey ?? "");
+    }
     case "connect-shopify": {
       const r = await connectShopify(body.domain ?? "", body.clientId ?? "", body.clientSecret ?? "");
       return r;

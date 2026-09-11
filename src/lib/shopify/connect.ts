@@ -1,6 +1,5 @@
-import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { config } from "@/lib/config";
+import { canSaveLocally, writeEnvLocal } from "@/lib/env-file";
 import { invalidateCatalog } from "./catalog";
 import { resetShopifyToken } from "./client";
 
@@ -16,7 +15,6 @@ export function normalizeDomain(input: string) {
   return d;
 }
 
-export const canSaveLocally = () => process.env.NODE_ENV !== "production" && !process.env.NETLIFY && !process.env.VERCEL;
 
 export async function testShopifyCredentials(domainInput: string, clientId: string, clientSecret: string) {
   const domain = normalizeDomain(domainInput);
@@ -58,17 +56,6 @@ export async function testShopifyCredentials(domainInput: string, clientId: stri
     shopName: json.data?.shop?.name ?? domain,
     missingScopes: needed.filter((s) => !granted.has(s)),
   };
-}
-
-async function writeEnvLocal(values: Record<string, string>) {
-  const file = path.join(process.cwd(), ".env.local");
-  let text = await readFile(file, "utf8").catch(() => "");
-  for (const [key, value] of Object.entries(values)) {
-    const line = `${key}=${value}`;
-    const re = new RegExp(`^${key}=.*$`, "m");
-    text = re.test(text) ? text.replace(re, line) : `${text}${text.endsWith("\n") || !text ? "" : "\n"}${line}\n`;
-  }
-  await writeFile(file, text);
 }
 
 export async function connectShopify(domainInput: string, clientId: string, clientSecret: string) {

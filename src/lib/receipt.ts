@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { config } from "@/lib/config";
+import { canSaveLocally, writeEnvLocal } from "@/lib/env-file";
 import { looksLikeBundle } from "@/lib/bundles";
 import type { Variant } from "@/lib/types";
 
@@ -10,7 +11,8 @@ const ReadingSchema = z.object({
   store_name: z.string().nullable(),
   lines: z.array(
     z.object({
-      text: z.string().describe("The item exactly as printed on the receipt, or what the photographed product is"),
+      text: z.string().describe("The item exactly as printed on the receipt (keep Arabic as Arabic), or what the photographed product is"),
+      text_en: z.string().describe("The same item in English: brand in its usual Latin spelling, flavour/type, size (e.g. 'Davidoff Rich Aroma instant coffee 100g')"),
       quantity: z.number().nullable().describe("Units bought. null if not visible"),
       unit_price: z.number().nullable().describe("Price per unit in EGP. null if not visible"),
       line_total: z.number().nullable().describe("Line total in EGP. null if not visible"),
@@ -30,6 +32,8 @@ const ReadingSchema = z.object({
 export type PurchaseCandidate = { variantId: string; name: string; image: string | null; confidence: number; cost: number | null };
 export type PurchaseLine = {
   text: string;
+  /** English reading of the line (same as `text` when it was already English). */
+  textEn: string;
   quantity: number | null;
   unitPrice: number | null;
   candidates: PurchaseCandidate[];
@@ -43,7 +47,9 @@ You receive one or more photos. Each photo is either a supplier receipt/invoice 
 For a receipt: return one line per purchased item with the quantity, unit price and line total as printed. Skip totals, taxes, discounts, and payment lines. If only the line total is printed, still return it; if the quantity is printed as a weight, put the number as printed.
 For product photos: return one line per distinct product visible, with the quantity you can count (null if unclear) and no prices.
 
-Then match each line to the store catalog below using its ref (P1, P2, ...). Brand, flavour/variant, size/weight and pack type (capsules vs ground vs beans, can vs vacuum pack) all matter. Arabic receipt names often abbreviate brand and flavour. When several catalog items could fit, list up to 4 in order of likelihood with honest confidences so a person can choose. Give confidence 0.9+ only when brand, flavour and size clearly agree. Never invent refs.
+Receipts from Egyptian suppliers are usually in Arabic while the catalog is mostly in English (a few items, like Abu Auf Turkish coffee, have Arabic titles). For every line, read the Arabic, then write text_en: the English name with the brand in its usual Latin spelling. Arabic brand names are phonetic, e.g. دافيدوف = Davidoff, لافازا = Lavazza, نسكافيه / نسكافية = Nescafé, دولتشي جوستو = Dolce Gusto, إيلي / الي = illy, محمد أفندي = Mehmet Efendi, أبو عوف = Abu Auf, نوتيلا = Nutella, لوتس = Lotus, سيبون / مرجان = CEBON El Mordjene "Morgan", سبريتز = SPRITZ, سينو / تشينو = CCINO, ستاربكس = Starbucks. Common words: قهوة = coffee, سريعة الذوبان = instant, محمصة / مطحونة = roasted / ground, حبوب = beans, بن = coffee (usually ground), كبسولات = capsules, شوكولاتة = chocolate, صوص = sauce, فاتح = light, وسط = medium, غامق = dark, سادة = plain, محوج = spiced, جرام / جم = g, كيلو = kg, علبة = can/box, عبوة = pack. Receipts often abbreviate or misspell names; use the price and size to decide.
+
+Then match each line to the store catalog below using its ref (P1, P2, ...), comparing the Arabic text and your English reading against both English and Arabic catalog titles. Brand, flavour/variant, size/weight and pack type (capsules vs ground vs beans, can vs vacuum pack) all matter. When several catalog items could fit, list up to 4 in order of likelihood with honest confidences so a person can choose. Give confidence 0.9+ only when brand, flavour and size clearly agree. Never invent refs.
 
 CATALOG (ref | product | SKU/barcode | brand | type):`;
 
@@ -58,7 +64,29 @@ export function purchasableCatalog(catalog: Variant[]) {
   return catalog.filter((v) => !v.components && !looksLikeBundle(v)).sort((a, b) => a.id.localeCompare(b.id));
 }
 
-let client: Anthropic | null = null;
+/** Test a Claude API key, then use it right away (and save it to .env.local when running locally). */
+export async function connectClaude(apiKey: string) {
+  const key = apiKey.trim();
+  if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key)) {
+    throw new Error("That doesn't look like a Claude API key. It starts with sk-ant- (console.anthropic.com → API keys).");
+  }
+  try {
+    await new Anthropic({ apiKey: key }).models.retrieve(config.claude.model);
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError) throw new Error("Claude didn't accept this key. Copy it again from console.anthropic.com → API keys.");
+    if (e instanceof Anthropic.PermissionDeniedError) throw new Error("This key can't use the receipt model. Check the key's workspace in console.anthropic.com.");
+    if (e instanceof Anthropic.NotFoundError) throw new Error(`The model ${config.claude.model} isn't available to this key.`);
+    if (e instanceof Anthropic.APIError) throw new Error(`Claude answered ${e.status}: ${e.message}`);
+    throw e;
+  }
+  process.env.ANTHROPIC_API_KEY = key;
+  let saved = false;
+  if (canSaveLocally()) {
+    await writeEnvLocal({ ANTHROPIC_API_KEY: key });
+    saved = true;
+  }
+  return { ok: true, saved, model: config.claude.model };
+}
 
 export async function readPurchasePhotos(
   images: { data: string; mediaType: "image/jpeg" | "image/png" | "image/webp" }[],
@@ -67,7 +95,8 @@ export async function readPurchasePhotos(
   const items = purchasableCatalog(catalog);
   const refs = new Map(items.map((v, i) => [`P${i + 1}`, v]));
 
-  client ??= new Anthropic();
+  // Created per call so a key saved from Settings takes effect immediately.
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await client.beta.messages.parse({
     model: config.claude.model,
     max_tokens: 16000,
@@ -90,7 +119,7 @@ export async function readPurchasePhotos(
             type: "image" as const,
             source: { type: "base64" as const, media_type: img.mediaType, data: img.data },
           })),
-          { type: "text" as const, text: "Read these purchase photos and match them to the catalog." },
+          { type: "text" as const, text: "Read these purchase photos (Arabic or English) and match every item to the catalog." },
         ],
       },
     ],
@@ -121,7 +150,7 @@ export async function readPurchasePhotos(
     const quantity = l.quantity && l.quantity > 0 ? l.quantity : null;
     let unitPrice = l.unit_price;
     if (unitPrice == null && l.line_total != null && quantity) unitPrice = Math.round((l.line_total / quantity) * 100) / 100;
-    return { text: l.text, quantity, unitPrice, candidates: candidates.slice(0, 4) };
+    return { text: l.text, textEn: l.text_en || l.text, quantity, unitPrice, candidates: candidates.slice(0, 4) };
   });
 
   return { kind: parsed.kind, storeName: parsed.store_name, lines };
