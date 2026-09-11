@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Store Assist theme: dark grey surfaces, light grey text, neon accents.
+ * Components use only these semantic tokens (bg-surface, text-fg-muted, text-neon, …), never raw hex.
+ */
+@theme {
+  /* neutrals */
+  --color-bg: #0b0c0e;
+  --color-surface: #131518;
+  --color-surface-2: #1a1d21;
+  --color-surface-3: #23272c;
+  --color-line: #262a30;
+  --color-line-strong: #363b43;
+  --color-fg: #e8eaed;
+  --color-fg-muted: #a3a9b2;
+  --color-fg-subtle: #737a84;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* neon accents */
+  --color-neon: #c5ff3c; /* primary: actions, active nav, highlights */
+  --color-neon-ink: #0b0c0e; /* text on neon */
+  --color-pink: #ff4d8d; /* buy / problem */
+  --color-amber: #ffc53d; /* waiting */
+  --color-green: #3dffa8; /* confirmed / ok */
+  --color-cyan: #3de4ff; /* bundle / info */
+  --color-violet: #bb8cff; /* added manually */
+  --color-tile: #f1f3f5; /* light tile behind product photos */
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  /* faint neon haze at the top of the page */
+  background-image: radial-gradient(60rem 24rem at 50% -8rem, rgb(197 255 60 / 0.07), transparent 70%);
+  background-repeat: no-repeat;
+}
+
+::selection {
+  background: rgb(197 255 60 / 0.3);
+  color: var(--color-fg);
+}
+
+/* Visible, on-brand keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-neon);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Neon glow helpers: used sparingly (primary action, buy badges, active states). */
+.glow-neon {
+  box-shadow: 0 0 0 1px rgb(197 255 60 / 0.45), 0 0 22px -4px rgb(197 255 60 / 0.55);
+}
+.glow-neon:disabled {
+  box-shadow: none;
+}
+.glow-pink {
+  box-shadow: 0 0 0 1px rgb(255 77 141 / 0.55), 0 0 20px -4px rgb(255 77 141 / 0.6);
+}
+.text-glow-neon {
+  text-shadow: 0 0 14px rgb(197 255 60 / 0.55);
+}
+.text-glow-pink {
+  text-shadow: 0 0 14px rgb(255 77 141 / 0.55);
+}
+.text-glow-amber {
+  text-shadow: 0 0 14px rgb(255 197 61 / 0.5);
+}
+.text-glow-green {
+  text-shadow: 0 0 14px rgb(61 255 168 / 0.5);
+}
+
+/* Product names mix Arabic and English: keep each name's own direction, left-aligned in the layout. */
+bdi,
+[dir="auto"] {
+  unicode-bidi: plaintext;
+  text-align: left;
+}
+
+/* Room for the bottom tab bar and the iPhone home indicator. */
+.pb-safe {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+.bottom-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 768px) {
+  .pb-safe {
+    padding-bottom: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
