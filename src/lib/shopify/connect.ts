@@ -49,7 +49,10 @@ export async function testShopifyCredentials(domainInput: string, clientId: stri
     cache: "no-store",
   });
   const json = (await shopRes.json().catch(() => ({}))) as { data?: { shop?: { name: string } } };
-  const needed = ["read_products", "write_products", "read_inventory", "write_inventory", "read_orders", "write_orders", "read_locations"];
+  const needed = [
+    "read_products", "write_products", "read_inventory", "write_inventory", "read_orders", "write_orders", "read_locations",
+    "read_metaobjects", "write_metaobjects", "read_metaobject_definitions", "write_metaobject_definitions", "read_files", "write_files",
+  ];
   const granted = new Set((scope ?? "").split(",").map((s) => s.trim()));
   return {
     domain,

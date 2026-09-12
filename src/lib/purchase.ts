@@ -94,3 +94,33 @@ export async function commitPurchase(lines: CommitLine[], note: string) {
   invalidateCatalog();
   return results;
 }
+
+/**
+ * Change stock after editing or deleting a purchase: positive delta adds, negative removes.
+ * Updates Shopify inventory and the actual sheet (cost per item is left as it is).
+ */
+export async function adjustStockForPurchase(deltas: { variantId: string; delta: number }[], reason: string) {
+  const catalog = byId(await getCatalog());
+  const real = deltas
+    .map((d) => ({ ...d, delta: Math.round(d.delta), variant: catalog.get(d.variantId) }))
+    .filter((d) => d.variant && d.delta !== 0);
+  const out = { shopify: true, sheet: sheetEnabled(), changed: real.length, error: undefined as string | undefined };
+  if (!real.length) return out;
+  const reference = `gid://store-assist/PurchaseEdit/${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}`;
+  try {
+    await adjustInventory(real.map((d) => ({ inventoryItemId: d.variant!.inventoryItemId, delta: d.delta })), "correction", reference);
+  } catch (e) {
+    out.shopify = false;
+    out.error = e instanceof Error ? e.message : String(e);
+  }
+  if (sheetEnabled()) {
+    try {
+      await applySheetChanges(real.map((d) => ({ variant: d.variant!, delta: d.delta })), { type: reason, reference: reference.split("/").pop()! });
+    } catch (e) {
+      out.sheet = false;
+      out.error = (out.error ? `${out.error}; ` : "") + (e instanceof Error ? e.message : String(e));
+    }
+  }
+  invalidateCatalog();
+  return out;
+}

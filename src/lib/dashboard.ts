@@ -1,6 +1,7 @@
 import { config, sheetEnabled } from "@/lib/config";
 import { expandVariant, looksLikeBundle } from "@/lib/bundles";
 import { listManualNeeds, type ManualNeed } from "@/lib/manual-needs";
+import { buildSettlements, listPurchases } from "@/lib/purchase-log";
 import { matchRows, readInventory } from "@/lib/sheet";
 import { adminOrderUrl, adminProductUrl } from "@/lib/shopify/client";
 import { byId, getCatalog } from "@/lib/shopify/catalog";
@@ -191,7 +192,15 @@ export function buildProductRows(catalog: Variant[], sheet: Map<string, SheetRow
 }
 
 export async function loadDashboard() {
-  const [catalog, orders, manualNeeds] = await Promise.all([getCatalog(), getOpenOrders(), listManualNeeds()]);
+  const [catalog, orders, manualNeeds, purchasesResult] = await Promise.all([
+    getCatalog(),
+    getOpenOrders(),
+    listManualNeeds(),
+    listPurchases().then(
+      (list) => ({ list, error: null as string | null }),
+      (e: unknown) => ({ list: [], error: e instanceof Error ? e.message : String(e) }),
+    ),
+  ]);
   const { status: sheet, matches } = await loadSheet(catalog);
   const sheetMap = sheet.ok ? matches : null;
   const { items: toBuy, unmapped } = buildToBuy(orders, catalog, sheetMap, manualNeeds);
@@ -203,6 +212,7 @@ export async function loadDashboard() {
     toBuy,
     unmappedBundles: unmapped,
     confirmations,
+    settlements: { ...buildSettlements(purchasesResult.list), error: purchasesResult.error },
     openOrders: orders.filter((o) => o.fulfillmentStatus !== "FULFILLED").length,
   };
 }

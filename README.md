@@ -5,7 +5,7 @@ A small admin dashboard for the Cupcairo Shopify store. Open it in the morning (
 | Screen | What it does |
 |---|---|
 | **Today** | **To buy**: items open orders need that you don't have (Shopify stock below zero, bundle items, or the actual sheet below zero), with the orders that need them. **+ Add** puts anything else on the list by hand (shown as *Added manually*, stored in the shop metafield `store_assist.manual_needs`); recording a purchase of that item clears it. **Confirmations**: open orders where `custom.confirmed` isn't true, split into *not sent*, *sent, waiting reply*, and *marked not confirmed*, with WhatsApp / Shopify links and one-tap **Mark sent** / **Confirmed**. |
-| **Purchase** | Take a photo (JPG, PNG or iPhone HEIC) of a receipt or the products. OpenAI or Claude (your choice in Settings) reads it, Arabic or English, and matches items to your catalog; when unsure it shows the likely products so you choose. Set quantity and cost, and it adds the stock to Shopify, updates *Cost per item*, and adds it to the actual inventory sheet. |
+| **Purchase** | Choose who paid (Cupcairo, Mark, Michael, Andrew), the date and the items; attach the receipt photo if you like. Purchases paid by a person appear under **Settlements** on Today until marked settled (settlement date between the purchase date and today). The **Purchase log** keeps every purchase with edit/delete (optionally correcting the stock). Stored in Shopify as `store_assist_purchase` metaobjects; receipts in Shopify Files. Optional: take a photo (JPG, PNG or iPhone HEIC) of a receipt or the products. OpenAI or Claude (your choice in Settings) reads it, Arabic or English, and matches items to your catalog; when unsure it shows the likely products so you choose. Set quantity and cost, and it adds the stock to Shopify, updates *Cost per item*, and adds it to the actual inventory sheet. |
 | **Products** | Every product with Shopify qty, actual (sheet) qty, cost, price, and margin. Filters for below zero, Shopify ≠ actual, not in sheet, no cost. |
 | **Bundles** | Tell it which single items each bundle uses (e.g. *Davidoff Bundle · Rich Aroma / Espresso 57* = 1× Rich Aroma + 1× Espresso 57). Suggestions are pre-filled from option names and SKUs; accept or edit. |
 | **Settings** | Connection status, webhook registration, sheet tools. |
@@ -30,7 +30,7 @@ Clear cases are applied **automatically**, with no setup needed: multipacks whos
 
 ### 1. Shopify app
 1. Go to [dev.shopify.com](https://dev.shopify.com) → Apps → **Create app** (Dev Dashboard; admin-created custom apps can no longer be made).
-2. Access scopes: `read_products, write_products, read_inventory, write_inventory, read_orders, write_orders, read_locations, read_customers`.
+2. Access scopes: `read_products, write_products, read_inventory, write_inventory, read_orders, write_orders, read_locations, read_customers, read_metaobjects, write_metaobjects, read_metaobject_definitions, write_metaobject_definitions, read_files, write_files`.
 3. Under protected customer data, enable **Name** and **Phone** (without this, confirmations still work but show no name/phone).
 4. Release a version and install it on the Cupcairo store.
 5. Copy **Client ID** and **Client secret** into `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET`.

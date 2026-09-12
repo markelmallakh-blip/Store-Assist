@@ -1,23 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    {
-      "name": "store-assist",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
-      "port": 3000
-    },
-    {
-      "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
-      "port": 3000
-    }
+    { "name": "store-assist", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 },
+    { "name": "store-assist-test", "runtimeExecutable": "env", "runtimeArgs": ["SHOPIFY_FIXTURES_DIR=/private/tmp/claude-501/-Users-markamir-Documents-GitHub-The-Assist/2026a5ea-15e9-4bad-ad0d-aa7d52d0528e/scratchpad/fixtures", "npm", "run", "dev"], "port": 3000 }
   ]
 }

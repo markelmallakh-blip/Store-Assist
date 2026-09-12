@@ -52,6 +52,9 @@ const egp = new Intl.NumberFormat("en-EG", { maximumFractionDigits: 2 });
 export const money = (n: number | null | undefined) => (n == null ? "—" : `${egp.format(n)} EGP`);
 export const qty = (n: number | null | undefined) => (n == null ? "—" : String(n));
 
+/** Today's date in Cairo as YYYY-MM-DD (for date inputs). */
+export const todayInCairo = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(new Date());
+
 export const ageInDays = (iso: string) => (Date.now() - Date.parse(iso)) / 86_400_000;
 
 export function timeAgo(iso: string) {
@@ -77,6 +80,8 @@ const tones = {
   stone: "bg-surface-3 text-fg-muted ring-line-strong",
   accent: "bg-neon/10 text-neon ring-neon/30",
   blue: "bg-cyan/10 text-cyan ring-cyan/30",
+  cyan: "bg-cyan/10 text-cyan ring-cyan/30",
+  violet: "bg-violet/10 text-violet ring-violet/30",
 };
 
 export function Badge({ tone = "stone", children, className = "" }: { tone?: keyof typeof tones; children: React.ReactNode; className?: string }) {
@@ -94,6 +99,7 @@ const buttonStyles = {
   secondary: "bg-surface-2 text-fg ring-1 ring-inset ring-line-strong hover:bg-surface-3 disabled:text-fg-subtle",
   ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg disabled:text-fg-subtle",
   success: "bg-green/15 text-green ring-1 ring-inset ring-green/50 hover:bg-green/25 disabled:bg-surface-3 disabled:text-fg-subtle disabled:ring-0",
+  danger: "bg-pink/15 text-pink ring-1 ring-inset ring-pink/50 hover:bg-pink/25 disabled:bg-surface-3 disabled:text-fg-subtle disabled:ring-0",
 };
 
 export function Button({
@@ -220,4 +226,35 @@ export function useToast() {
     </div>
   ) : null;
   return { show: (text: string, tone: "ok" | "err" = "ok") => setToast({ text, tone }), node };
+}
+
+/** Centered dialog (bottom sheet on phones). Escape or the backdrop closes it. */
+export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <button className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" aria-label="Close" onClick={onClose} />
+      <div className="relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl border border-line bg-surface shadow-2xl sm:max-w-lg sm:rounded-3xl">
+        <div className="flex items-center gap-2 border-b border-line px-5 py-4">
+          <h2 className="flex-1 text-base font-semibold">{title}</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-fg-muted hover:bg-surface-2 hover:text-fg" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className="size-5" aria-hidden>
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="bottom-safe flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+      </div>
+    </div>
+  );
 }

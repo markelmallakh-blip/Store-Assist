@@ -114,3 +114,15 @@ export const IconSearch = (p: P) => (
     <path d="m20 20-4.2-4.2" />
   </Svg>
 );
+export const IconWallet = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v4" />
+    <path d="M4 7.5V17a2 2 0 0 0 2 2h14v-10H6.5A2.5 2.5 0 0 1 4 7.5z" />
+    <circle cx="16" cy="14" r="1.2" />
+  </Svg>
+);
+export const IconChevronDown = (p: P) => (
+  <Svg {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Svg>
+);
